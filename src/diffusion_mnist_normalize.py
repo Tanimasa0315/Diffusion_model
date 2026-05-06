@@ -15,13 +15,12 @@ class Diffuser:
         beta_start: float = 0.0001,
         beta_end: float = 0.02,
         beta_schedule_type: str = "linear",
-        type: str | None = None,
         device: str = "cpu",
     ):
         self.num_timesteps = num_timesteps
         self.beta_start = beta_start
         self.beta_end = beta_end
-        self.beta_schedule_type = type or beta_schedule_type
+        self.beta_schedule_type = beta_schedule_type
         self.device = device
 
         self.betas = make_beta_schedule(
@@ -34,7 +33,7 @@ class Diffuser:
         self.alphas = 1 - self.betas
         self.alpha_bars = torch.cumprod(self.alphas, dim=0)
 
-        self.unet_model = model.to(self.device)
+        self.noise_pred_model = model.to(self.device)
 
     def add_noise(self, x_0, timestep) -> tuple[torch.Tensor, torch.Tensor]:
         """Sample q(x_t | x_0). x_0 is expected to be normalized to [-1, 1]."""
@@ -69,10 +68,10 @@ class Diffuser:
         alpha_bar = alpha_bar.view(N, 1, 1, 1)
         alpha_bar_prev = alpha_bar_prev.view(N, 1, 1, 1)
 
-        self.unet_model.eval()
+        self.noise_pred_model.eval()
         with torch.no_grad():
-            eps = self.unet_model(x, timestep)
-        self.unet_model.train()
+            eps = self.noise_pred_model(x, timestep)
+        self.noise_pred_model.train()
 
         noise = torch.randn_like(x, device=self.device)
         noise[timestep == 1] = 0
@@ -94,7 +93,7 @@ class Diffuser:
         batch_size = x_shape[0]
         x = torch.randn(x_shape, device=self.device)
 
-        for i in tqdm(range(self.num_timesteps, 0, -1)):
+        for i in tqdm(range(self.num_timesteps, 0, -1), desc="DDPM Sampling"):
             timestep = torch.tensor(
                 [i] * batch_size,
                 device=self.device,
@@ -127,14 +126,13 @@ class CondDiffuser:
         beta_end: float = 0.02,
         gamma: float = 3.0,
         beta_schedule_type: str = "linear",
-        type: str | None = None,
         device: str = "cpu",
     ):
         self.num_timesteps = num_timesteps
         self.beta_start = beta_start
         self.beta_end = beta_end
         self.gamma = gamma
-        self.beta_schedule_type = type or beta_schedule_type
+        self.beta_schedule_type = beta_schedule_type
         self.device = device
 
         self.betas = make_beta_schedule(
@@ -147,7 +145,7 @@ class CondDiffuser:
         self.alphas = 1 - self.betas
         self.alpha_bars = torch.cumprod(self.alphas, dim=0)
 
-        self.unet_model = model.to(self.device)
+        self.noise_pred_model = model.to(self.device)
 
     def add_noise(self, x_0, timestep) -> tuple[torch.Tensor, torch.Tensor]:
         """Sample q(x_t | x_0). x_0 is expected to be normalized to [-1, 1]."""
@@ -182,12 +180,12 @@ class CondDiffuser:
         alpha_bar = alpha_bar.view(N, 1, 1, 1)
         alpha_bar_prev = alpha_bar_prev.view(N, 1, 1, 1)
 
-        self.unet_model.eval()
+        self.noise_pred_model.eval()
         with torch.no_grad():
-            eps_cond = self.unet_model(x, timestep, labels)
-            eps_uncond = self.unet_model(x, timestep)
+            eps_cond = self.noise_pred_model(x, timestep, labels)
+            eps_uncond = self.noise_pred_model(x, timestep)
             eps = eps_uncond + self.gamma * (eps_cond - eps_uncond)
-        self.unet_model.train()
+        self.noise_pred_model.train()
 
         noise = torch.randn_like(x, device=self.device)
         noise[timestep == 1] = 0
@@ -221,12 +219,12 @@ class CondDiffuser:
         alpha_bar = alpha_bar.view(N, 1, 1, 1)
         alpha_bar_prev = alpha_bar_prev.view(N, 1, 1, 1)
 
-        self.unet_model.eval()
+        self.noise_pred_model.eval()
         with torch.no_grad():
-            eps_cond = self.unet_model(x, timestep, labels)
-            eps_uncond = self.unet_model(x, timestep)
+            eps_cond = self.noise_pred_model(x, timestep, labels)
+            eps_uncond = self.noise_pred_model(x, timestep)
             eps = eps_uncond + self.gamma * (eps_cond - eps_uncond)
-        self.unet_model.train()
+        self.noise_pred_model.train()
 
         x_0_pred = (x - torch.sqrt(1 - alpha_bar) * eps) / torch.sqrt(alpha_bar)
         # Training images are normalized to [-1, 1], so keep predicted x_0
@@ -250,7 +248,7 @@ class CondDiffuser:
         batch_size = x_shape[0]
         x = torch.randn(x_shape, device=self.device)
 
-        for i in tqdm(range(self.num_timesteps, 0, -1)):
+        for i in tqdm(range(self.num_timesteps, 0, -1), desc="DDPM Sampling"):
             timestep = torch.tensor(
                 [i] * batch_size,
                 device=self.device,
@@ -269,7 +267,7 @@ class CondDiffuser:
         T = self.num_timesteps
         ddim_timesteps = torch.linspace(1, T, ddim_timestep, device=self.device, dtype=torch.long)
 
-        for i in tqdm(range(ddim_timestep, 0, -1)):
+        for i in tqdm(range(ddim_timestep, 0, -1), desc="DDIM Sampling"):
             timestep = torch.tensor(
                 [ddim_timesteps[i - 1]] * batch_size,
                 device=self.device,

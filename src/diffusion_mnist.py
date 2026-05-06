@@ -19,7 +19,7 @@ class Diffuser:
         self.alpha_bars = torch.cumprod(self.alphas, dim=0)
 
         # U-netを定義
-        self.unet_model = model.to(self.device)
+        self.noise_pred_model = model.to(self.device)
 
     def add_noise(self, x_0, timestep) -> tuple[torch.Tensor, torch.Tensor]:
         """x_0に指定したタイムステップの時刻でのノイズ添加画像を出力"""
@@ -53,10 +53,10 @@ class Diffuser:
         alpha_bar_prev = alpha_bars_prev.view(N, 1, 1, 1)
 
         # ノイズの予測
-        self.unet_model.eval()
+        self.noise_pred_model.eval()
         with torch.no_grad():
-            eps = self.unet_model(x, timestep)
-        self.unet_model.train()
+            eps = self.noise_pred_model(x, timestep)
+        self.noise_pred_model.train()
 
         noise = torch.randn_like(x, device=self.device)
         # 時刻tではノイズを加えない
@@ -107,7 +107,7 @@ class CondDiffuser:
         self.alpha_bars = torch.cumprod(self.alphas, dim=0)
 
         # U-netを定義
-        self.unet_model = model.to(self.device)
+        self.noise_pred_model = model.to(self.device)
 
     def add_noise(self, x_0, timestep) -> tuple[torch.Tensor, torch.Tensor]:
         """x_0に指定したタイムステップの時刻でのノイズ添加画像を出力"""
@@ -141,12 +141,12 @@ class CondDiffuser:
         alpha_bar_prev = alpha_bars_prev.view(N, 1, 1, 1)
 
         # ノイズの予測
-        self.unet_model.eval()
+        self.noise_pred_model.eval()
         with torch.no_grad():
-            eps_cond = self.unet_model(x, timestep, labels)
-            eps_uncond = self.unet_model(x, timestep)
+            eps_cond = self.noise_pred_model(x, timestep, labels)
+            eps_uncond = self.noise_pred_model(x, timestep)
             eps = eps_uncond + self.gamma * (eps_cond - eps_uncond)
-        self.unet_model.train()
+        self.noise_pred_model.train()
 
         noise = torch.randn_like(x, device=self.device)
         # 時刻tではノイズを加えない
@@ -178,12 +178,12 @@ class CondDiffuser:
         alpha_bar_prev = alpha_bar_prev.view(N, 1, 1, 1)
 
         # ノイズの予測
-        self.unet_model.eval()
+        self.noise_pred_model.eval()
         with torch.no_grad():
-            eps_cond = self.unet_model(x, timestep, labels)
-            eps_uncond = self.unet_model(x, timestep)
+            eps_cond = self.noise_pred_model(x, timestep, labels)
+            eps_uncond = self.noise_pred_model(x, timestep)
             eps = eps_uncond + self.gamma * (eps_cond - eps_uncond)
-        self.unet_model.train()
+        self.noise_pred_model.train()
 
         # x_0の予測
         x_0_pred = (x - torch.sqrt(1 - alpha_bar) * eps) / torch.sqrt(alpha_bar)

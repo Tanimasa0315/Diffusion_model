@@ -148,6 +148,58 @@ class CondSimpleUnet(nn.Module):
         return x
 
 
+class CondSimpleUnetDeep(nn.Module):
+    """CondSimpleUnetを一段深くしたU-Net Model"""
+
+    def __init__(self, in_ch=1, time_embed_dim=100, num_labels=None):
+        super().__init__()
+        self.time_embed_dim = time_embed_dim
+        self.num_labels = num_labels
+
+        self.down1 = ConvBlock(in_ch, 64, time_embed_dim)
+        self.down2 = ConvBlock(64, 128, time_embed_dim)
+        self.down3 = ConvBlock(128, 256, time_embed_dim)
+        self.bot1 = ConvBlock(256, 512, time_embed_dim)
+        self.up3 = ConvBlock(512 + 256, 256, time_embed_dim)
+        self.up2 = ConvBlock(256 + 128, 128, time_embed_dim)
+        self.up1 = ConvBlock(128 + 64, 64, time_embed_dim)
+        self.out = nn.Conv2d(64, in_ch, 1)
+
+        self.maxpool = nn.MaxPool2d(2)
+        self.upsample = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=False)
+
+        if num_labels is not None:
+            self.label_emb = nn.Embedding(num_labels, time_embed_dim)
+
+    def forward(self, x, timesteps, labels=None):
+        v = pos_encoding(timesteps, self.time_embed_dim, x.device)
+
+        if labels is not None:
+            v += self.label_emb(labels)
+
+        x1 = self.down1.forward_time_embed(x, v)   # [B, 64, 32, 32]
+        x = self.maxpool(x1)                       # [B, 64, 16, 16]
+        x2 = self.down2.forward_time_embed(x, v)   # [B, 128, 16, 16]
+        x = self.maxpool(x2)                       # [B, 128, 8, 8]
+        x3 = self.down3.forward_time_embed(x, v)   # [B, 256, 8, 8]
+        x = self.maxpool(x3)                       # [B, 256, 4, 4]
+
+        x = self.bot1.forward_time_embed(x, v)     # [B, 512, 4, 4]
+
+        x = self.upsample(x)                       # [B, 512, 8, 8]
+        x = torch.cat([x, x3], dim=1)              # [B, 768, 8, 8]
+        x = self.up3.forward_time_embed(x, v)      # [B, 256, 8, 8]
+        x = self.upsample(x)                       # [B, 256, 16, 16]
+        x = torch.cat([x, x2], dim=1)              # [B, 384, 16, 16]
+        x = self.up2.forward_time_embed(x, v)      # [B, 128, 16, 16]
+        x = self.upsample(x)                       # [B, 128, 32, 32]
+        x = torch.cat([x, x1], dim=1)              # [B, 192, 32, 32]
+        x = self.up1.forward_time_embed(x, v)      # [B, 64, 32, 32]
+
+        x = self.out(x)
+        return x
+
+
 # 正弦波位置エンコーディング
 def _pos_encoding(time, output_dim, device='cpu'):
     v = torch.zeros(output_dim, device=device)

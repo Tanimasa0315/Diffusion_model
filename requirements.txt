@@ -1,6 +1,9 @@
-numpy==1.24.2
-scipy==1.10.1
-matplotlib==3.7.1
-torch==2.0.0
-torchvision==0.15.1
-tqdm==4.65.0
+# Core training and sampling dependencies
+torch==2.11.0
+torchvision==0.26.0
+numpy==2.4.4
+matplotlib==3.10.8
+tqdm==4.67.3
+
+# Notebook execution
+ipykernel

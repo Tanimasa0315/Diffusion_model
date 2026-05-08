@@ -38,7 +38,6 @@ def build_diffuser(model, diffuser_config, device):
         num_timesteps=diffuser_config["num_timesteps"],
         beta_start=diffuser_config["beta_start"],
         beta_end=diffuser_config["beta_end"],
-        gamma=diffuser_config["gamma"],
         beta_schedule_type=diffuser_config["beta_schedule_type"],
         device=device,
     )
@@ -54,10 +53,29 @@ def load_config(model_name):
     return model_config, diffuser_config, train_config
 
 
-def load_model(model, optimizer, ema: EMA, path):
-    checkpoint = torch.load(path)
+def load_latest_checkpoint(checkpoint_path: pathlib.Path, model, optimizer, ema):
+    """
+    指定されたパスから最新のチェックポイントを読み込み、モデル、オプティマイザ、EMAの状態を復元します。
+    チェックポイントには、モデルの状態、オプティマイザの状態、EMAモデルの状態、損失の履歴、および最後のエポック番号が含まれている必要があります。
+    Args:
+        checkpoint_path (pathlib.Path): チェックポイントが保存されているディレクトリのパス。
+        model (torch.nn.Module): 復元するモデルのインスタンス。
+        optimizer (torch.optim.Optimizer): 復元するオプティマイザのインスタンス。
+        ema (EMA): 復元するEMAのインスタンス。
+    Returns:
+        tuple: (start_epoch, losses, model, optimizer, ema)
+        start_epoch (int): 復元されたエポック番号の次のエポックからトレーニングを再開するためのエポック番号。
+        losses (list): 復元された損失の履歴。
+        model (torch.nn.Module): 復元されたモデルのインスタンス。
+        optimizer (torch.optim.Optimizer): 復元されたオプティマイザのインスタンス。
+        ema (EMA): 復元されたEMAのインスタンス。
+    """
+    latest_checkpoint = list(pathlib.Path(checkpoint_path).glob("checkpoint_epoch_*.pth"))[-1]
+    print(f"Loading latest checkpoint from {latest_checkpoint}")
+    checkpoint = torch.load(latest_checkpoint)
     model.load_state_dict(checkpoint["model_state_dict"])
     optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
     ema.ema_model.load_state_dict(checkpoint["ema_model_state_dict"])
+    losses = checkpoint.get("losses", [])
     start_epoch = checkpoint["epoch"] + 1
-    return start_epoch
+    return start_epoch, losses, model, optimizer, ema

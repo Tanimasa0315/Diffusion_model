@@ -106,9 +106,10 @@ class SimpleUnetWithTime(nn.Module):
 class CondSimpleUnet(nn.Module):
     """位置情報(時刻t)および条件yを埋め込むU-Net Model"""
 
-    def __init__(self, in_ch=1, time_embed_dim=100, num_labels=None):
+    def __init__(self, in_ch=1, time_embed_dim=100, num_labels=None, label_scale=0.3):
         super().__init__()
         self.time_embed_dim = time_embed_dim
+        self.label_scale = label_scale
 
         self.down1 = ConvBlock(in_ch, 64, time_embed_dim)
         self.down2 = ConvBlock(64, 128, time_embed_dim)
@@ -129,7 +130,7 @@ class CondSimpleUnet(nn.Module):
 
         # 条件の埋め込み
         if labels is not None:
-            v += self.label_emb(labels)
+            v += self.label_emb(labels) * self.label_scale
 
         x1 = self.down1.forward_time_embed(x, v)
         x = self.maxpool(x1)
@@ -151,10 +152,11 @@ class CondSimpleUnet(nn.Module):
 class CondSimpleUnetDeep(nn.Module):
     """CondSimpleUnetを一段深くしたU-Net Model"""
 
-    def __init__(self, in_ch=1, time_embed_dim=100, num_labels=None):
+    def __init__(self, in_ch=1, time_embed_dim=100, num_labels=None, label_scale=0.3):
         super().__init__()
         self.time_embed_dim = time_embed_dim
         self.num_labels = num_labels
+        self.label_scale = label_scale
 
         self.down1 = ConvBlock(in_ch, 64, time_embed_dim)
         self.down2 = ConvBlock(64, 128, time_embed_dim)
@@ -175,7 +177,7 @@ class CondSimpleUnetDeep(nn.Module):
         v = pos_encoding(timesteps, self.time_embed_dim, x.device)
 
         if labels is not None:
-            v += self.label_emb(labels)
+            v += self.label_emb(labels) * self.label_scale
 
         x1 = self.down1.forward_time_embed(x, v)   # [B, 64, 32, 32]
         x = self.maxpool(x1)                       # [B, 64, 16, 16]

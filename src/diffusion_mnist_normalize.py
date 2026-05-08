@@ -165,6 +165,8 @@ class CondDiffuser:
     def denoise_ddpm(self, x, timestep, labels):
         T = self.num_timesteps
         assert (timestep >= 1).all() and (timestep <= T).all()
+        if labels is not None:
+            labels = labels.to(self.device, dtype=torch.long)
 
         time_idx = timestep - 1
         alpha = self.alphas[time_idx]
@@ -206,6 +208,8 @@ class CondDiffuser:
     def denoise_ddim(self, x, timestep, timestep_prev, labels, eta: float = 0):
         T = self.num_timesteps
         assert (timestep >= 1).all() and (timestep <= T).all()
+        if labels is not None:
+            labels = labels.to(self.device, dtype=torch.long)
 
         time_idx = timestep - 1
         alpha_bar = self.alpha_bars[time_idx]
@@ -247,6 +251,8 @@ class CondDiffuser:
     def ddpm_sampling(self, x_shape=(20, 1, 28, 28), labels=None):
         batch_size = x_shape[0]
         x = torch.randn(x_shape, device=self.device)
+        if labels is not None:
+            labels = labels.to(self.device, dtype=torch.long)
 
         for i in tqdm(range(self.num_timesteps, 0, -1), desc="DDPM Sampling"):
             timestep = torch.tensor(
@@ -263,6 +269,8 @@ class CondDiffuser:
     def ddim_sampling(self, x_shape=(20, 1, 28, 28), labels=None, ddim_timestep: int = 50, eta: float = 0):
         batch_size = x_shape[0]
         x = torch.randn(x_shape, device=self.device)
+        if labels is not None:
+            labels = labels.to(self.device, dtype=torch.long)
 
         T = self.num_timesteps
         ddim_timesteps = torch.linspace(1, T, ddim_timestep, device=self.device, dtype=torch.long)

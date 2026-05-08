@@ -1,4 +1,5 @@
 import copy
+
 import torch
 
 
@@ -7,25 +8,34 @@ class EMA:
         self.decay = decay
         self.device = device
 
-        # EMAモデルを作成（deepcopy）
+        # Keep a detached copy for inference.
         self.ema_model = copy.deepcopy(model)
         self.ema_model.eval()
 
-        # 勾配不要
         for p in self.ema_model.parameters():
             p.requires_grad_(False)
 
-        # device移動（任意）
         if device is not None:
             self.ema_model.to(device)
 
     @torch.no_grad()
     def update(self, model):
-        """
-        学習モデルからEMAモデルを更新
-        """
-        for ema_p, p in zip(self.ema_model.parameters(), model.parameters()):
-            ema_p.data.mul_(self.decay).add_(p.data, alpha=1 - self.decay)
+        """Update EMA parameters and copy buffers such as BatchNorm stats."""
+        ema_params = dict(self.ema_model.named_parameters())
+        model_params = dict(model.named_parameters())
+
+        for key, model_value in model_params.items():
+            ema_value = ema_params[key]
+            model_value = model_value.detach().to(device=ema_value.device)
+            ema_value.mul_(self.decay).add_(model_value, alpha=1 - self.decay)
+
+        ema_buffers = dict(self.ema_model.named_buffers())
+        model_buffers = dict(model.named_buffers())
+        for key, model_value in model_buffers.items():
+            ema_value = ema_buffers[key]
+            ema_value.copy_(model_value.detach().to(device=ema_value.device))
+
+        self.ema_model.eval()
 
     def state_dict(self):
         return {

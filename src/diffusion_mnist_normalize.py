@@ -124,14 +124,12 @@ class CondDiffuser:
         num_timesteps: int = 1000,
         beta_start: float = 0.0001,
         beta_end: float = 0.02,
-        gamma: float = 3.0,
         beta_schedule_type: str = "linear",
         device: str = "cpu",
     ):
         self.num_timesteps = num_timesteps
         self.beta_start = beta_start
         self.beta_end = beta_end
-        self.gamma = gamma
         self.beta_schedule_type = beta_schedule_type
         self.device = device
 
@@ -162,7 +160,7 @@ class CondDiffuser:
 
         return x_t, noise
 
-    def denoise_ddpm(self, x, timestep, labels):
+    def denoise_ddpm(self, x, timestep, labels, gamma: float = 3.0):
         T = self.num_timesteps
         assert (timestep >= 1).all() and (timestep <= T).all()
         if labels is not None:
@@ -186,7 +184,7 @@ class CondDiffuser:
         with torch.no_grad():
             eps_cond = self.noise_pred_model(x, timestep, labels)
             eps_uncond = self.noise_pred_model(x, timestep)
-            eps = eps_uncond + self.gamma * (eps_cond - eps_uncond)
+            eps = eps_uncond + gamma * (eps_cond - eps_uncond)
         self.noise_pred_model.train()
 
         noise = torch.randn_like(x, device=self.device)
@@ -205,7 +203,7 @@ class CondDiffuser:
 
         return mu + noise * std
 
-    def denoise_ddim(self, x, timestep, timestep_prev, labels, eta: float = 0):
+    def denoise_ddim(self, x, timestep, timestep_prev, labels, eta: float = 0, gamma: float = 3.0):
         T = self.num_timesteps
         assert (timestep >= 1).all() and (timestep <= T).all()
         if labels is not None:
@@ -227,7 +225,7 @@ class CondDiffuser:
         with torch.no_grad():
             eps_cond = self.noise_pred_model(x, timestep, labels)
             eps_uncond = self.noise_pred_model(x, timestep)
-            eps = eps_uncond + self.gamma * (eps_cond - eps_uncond)
+            eps = eps_uncond + gamma * (eps_cond - eps_uncond)
         self.noise_pred_model.train()
 
         x_0_pred = (x - torch.sqrt(1 - alpha_bar) * eps) / torch.sqrt(alpha_bar)
@@ -248,7 +246,7 @@ class CondDiffuser:
 
         return mu + noise * sigma
 
-    def ddpm_sampling(self, x_shape=(20, 1, 28, 28), labels=None):
+    def ddpm_sampling(self, x_shape=(20, 1, 28, 28), labels=None, gamma: float = 3.0):
         batch_size = x_shape[0]
         x = torch.randn(x_shape, device=self.device)
         if labels is not None:
@@ -266,7 +264,7 @@ class CondDiffuser:
 
         return images
 
-    def ddim_sampling(self, x_shape=(20, 1, 28, 28), labels=None, ddim_timestep: int = 50, eta: float = 0):
+    def ddim_sampling(self, x_shape=(20, 1, 28, 28), labels=None, ddim_timestep: int = 50, eta: float = 0, gamma: float = 3.0):
         batch_size = x_shape[0]
         x = torch.randn(x_shape, device=self.device)
         if labels is not None:

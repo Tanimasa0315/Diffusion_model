@@ -2,10 +2,12 @@
 data/
 data_cifar10/
 datasets/
+models/
 
 # training outputs
 checkpoints/
 outputs/
+models/
 samples/
 runs/
 wandb/

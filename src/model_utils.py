@@ -2,10 +2,13 @@
 import torch
 import pathlib
 import json
+import re
 
 from src.diffusion_mnist_normalize import CondDiffuser
 from src.simple_unet import CondSimpleUnet, CondSimpleUnetDeep, CondSimpleUnetDeep_GN
 from src.ema import EMA
+
+CHECKPOINT_PATTERN = re.compile(r"^checkpoint_epoch_(\d+)\.pth$")
 
 def build_model(model_config, device):
     model_class = model_config["model_class"]
@@ -79,7 +82,17 @@ def load_latest_checkpoint(checkpoint_path: pathlib.Path, model, optimizer, ema)
         optimizer (torch.optim.Optimizer): 復元されたオプティマイザのインスタンス。
         ema (EMA): 復元されたEMAのインスタンス。
     """
-    latest_checkpoint = list(pathlib.Path(checkpoint_path).glob("checkpoint_epoch_*.pth"))[-1]
+    checkpoints = list(pathlib.Path(checkpoint_path).glob("checkpoint_epoch_*.pth"))
+    if not checkpoints:
+        raise FileNotFoundError(f"No checkpoint files found in {checkpoint_path}")
+
+    def checkpoint_epoch(path: pathlib.Path) -> int:
+        match = CHECKPOINT_PATTERN.match(path.name)
+        if match is None:
+            raise ValueError(f"Invalid checkpoint filename: {path.name}")
+        return int(match.group(1))
+
+    latest_checkpoint = max(checkpoints, key=checkpoint_epoch)
     print(f"Loading latest checkpoint from {latest_checkpoint}")
     checkpoint = torch.load(latest_checkpoint)
     model.load_state_dict(checkpoint["model_state_dict"])

@@ -1,0 +1,29 @@
+# dataset
+data/
+data_cifar10/
+datasets/
+
+# training outputs
+checkpoints/
+outputs/
+samples/
+runs/
+wandb/
+logs/
+
+# model weights
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.pkl
+
+# notebook / python cache
+.ipynb_checkpoints/
+__pycache__/
+*.pyc
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/

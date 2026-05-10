@@ -4,7 +4,7 @@ import pathlib
 import json
 
 from src.diffusion_mnist_normalize import CondDiffuser
-from src.simple_unet import CondSimpleUnet, CondSimpleUnetDeep
+from src.simple_unet import CondSimpleUnet, CondSimpleUnetDeep, CondSimpleUnetDeep_GN
 from src.ema import EMA
 
 def build_model(model_config, device):
@@ -15,12 +15,21 @@ def build_model(model_config, device):
             in_ch=model_params["in_ch"],
             time_embed_dim=model_params["time_embed_dim"],
             num_labels=model_params["num_labels"],
+            label_scale=model_params["label_scale"],
         ).to(device)
     elif model_class == "CondSimpleUnetDeep":
         model = CondSimpleUnetDeep(
             in_ch=model_params["in_ch"],
             time_embed_dim=model_params["time_embed_dim"],
             num_labels=model_params["num_labels"],
+            label_scale=model_params["label_scale"],
+        ).to(device)
+    elif model_class == "CondSimpleUnetDeep_GN":
+        model = CondSimpleUnetDeep_GN(
+            in_ch=model_params["in_ch"],
+            time_embed_dim=model_params["time_embed_dim"],
+            num_labels=model_params["num_labels"],
+            label_scale=model_params["label_scale"],
         ).to(device)
     # elif model_class == "Dit":
     #     model = Dit(
